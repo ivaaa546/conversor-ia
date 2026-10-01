@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DocToExcel AI - Conversor de Documentos Manuscritos a Excel</title>
+  <meta name="description" content="Digitaliza documentos manuscritos, fichas médicas y tablas a Excel (.xlsx) usando inteligencia artificial con Google Gemini.">
+  
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  
+  <!-- FontAwesome Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+
+  <!-- SheetJS para exportación cliente a Excel -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+  <!-- Top Navbar -->
+  <header class="navbar">
+    <div class="nav-container">
+      <div class="brand">
+        <div class="brand-icon">
+          <i class="fa-solid fa-file-excel"></i>
+        </div>
+        <div class="brand-text">
+          <h1>DocToExcel <span class="badge-ai">AI</span></h1>
+          <p class="brand-sub">Conversor Inteligente de Manuscritos</p>
+        </div>
+      </div>
+
+      <div class="nav-actions">
+        <div class="model-select-wrapper">
+          <label for="modelSelect"><i class="fa-solid fa-brain"></i> Modelo:</label>
+          <select id="modelSelect" class="select-input">
+            <option value="gemini-2.0-flash" selected>Gemini 2.0 Flash (Recomendado - Rápido & Preciso)</option>
+            <option value="gemini-1.5-flash">Gemini 1.5 Flash</option>
+            <option value="gemini-1.5-pro">Gemini 1.5 Pro (Razonamiento Complejo)</option>
+          </select>
+
+        </div>
+
+        <button id="btnOpenApiKey" class="btn btn-outline" title="Configurar API Key">
+          <i class="fa-solid fa-key"></i> <span id="apiKeyStatusText">API Key</span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Container -->
+  <main class="main-container">
+    
+    <!-- Upload Dropzone Section -->
+    <section id="uploadSection" class="upload-section">
+      <div class="dropzone" id="dropzone">
+        <input type="file" id="fileInput" accept="image/*,application/pdf" class="file-input">
+        
+        <div class="dropzone-content">
+          <div class="upload-icon-circle">
+            <i class="fa-solid fa-cloud-arrow-up"></i>
+          </div>
+          <h2>Arrastra tu documento manuscrito o foto aquí</h2>
+          <p class="dropzone-hint">Soporta imágenes (JPG, PNG, WEBP) y PDF tabulares de consultas médicas, fichas o listas.</p>
+          
+          <div class="dropzone-buttons">
+            <button class="btn btn-primary btn-lg" onclick="document.getElementById('fileInput').click()">
+              <i class="fa-solid fa-folder-open"></i> Seleccionar Imagen o Documento
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Quick Tips -->
+      <div class="features-grid">
+        <div class="feature-card">
+          <i class="fa-solid fa-wand-magic-sparkles text-blue"></i>
+          <div>
+            <h3>Visión Inteligente Gemini</h3>
+            <p>Lee letra manuscrita compleja y organiza los datos en tablas estructuradas.</p>
+          </div>
+        </div>
+        <div class="feature-card">
+          <i class="fa-solid fa-pen-to-square text-emerald"></i>
+          <div>
+            <h3>Verificación Lado a Lado</h3>
+            <p>Revisa la imagen y edita las celdas directamente antes de exportar a Excel.</p>
+          </div>
+        </div>
+        <div class="feature-card">
+          <i class="fa-solid fa-file-export text-violet"></i>
+          <div>
+            <h3>Exportación Instantánea</h3>
+            <p>Descarga archivos `.xlsx` formateados profesionalmente con un clic.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Processing Loading Overlay -->
+    <section id="loadingSection" class="loading-section hidden">
+      <div class="spinner-container">
+        <div class="spinner"></div>
+        <i class="fa-solid fa-brain spinner-center-icon"></i>
+      </div>
+      <h2 id="loadingText">Analizando manuscrito con Gemini AI...</h2>
+      <p class="loading-sub">Identificando filas, columnas y metadatos del formulario médico/clínico.</p>
+    </section>
+
+    <!-- Workspace (Split View) -->
+    <section id="workspaceSection" class="workspace-section hidden">
+      <!-- Toolbar -->
+      <div class="workspace-toolbar">
+        <div class="doc-info">
+          <button id="btnNewDoc" class="btn btn-sm btn-outline">
+            <i class="fa-solid fa-arrow-left"></i> Cargar Otro Documento
+          </button>
+          <span class="file-name-badge" id="fileNameBadge">documento.jpg</span>
+        </div>
+
+        <div class="export-actions">
+          <button id="btnAddRow" class="btn btn-sm btn-secondary">
+            <i class="fa-solid fa-plus"></i> Fila
+          </button>
+          <button id="btnCopyTable" class="btn btn-sm btn-secondary">
+            <i class="fa-solid fa-copy"></i> Copiar
+          </button>
+          <button id="btnExportExcel" class="btn btn-sm btn-success">
+            <i class="fa-solid fa-file-excel"></i> Descargar Excel (.xlsx)
+          </button>
+        </div>
+      </div>
+
+      <!-- Split Container -->
+      <div class="split-container">
+        <!-- Left: Image Viewer with Pan & Zoom -->
+        <div class="viewer-pane">
+          <div class="pane-header">
+            <span><i class="fa-solid fa-image"></i> Documento Original</span>
+            <div class="zoom-controls">
+              <button id="btnZoomOut" class="btn-icon" title="Alejar"><i class="fa-solid fa-minus"></i></button>
+              <span id="zoomPercent">100%</span>
+              <button id="btnZoomIn" class="btn-icon" title="Acercar"><i class="fa-solid fa-plus"></i></button>
+              <button id="btnResetZoom" class="btn-icon" title="Restablecer"><i class="fa-solid fa-expand"></i></button>
+              <button id="btnRotate" class="btn-icon" title="Rotar"><i class="fa-solid fa-rotate-right"></i></button>
+            </div>
+          </div>
+
+          <div class="image-viewport" id="imageViewport">
+            <img id="documentImage" src="" alt="Vista previa del documento" draggable="false">
+          </div>
+        </div>
+
+        <!-- Right: Interactive Editable Table -->
+        <div class="table-pane">
+          <div class="pane-header">
+            <span><i class="fa-solid fa-table"></i> Datos Extraídos (Editable)</span>
+            <span class="row-count-badge" id="rowCountBadge">0 Filas</span>
+          </div>
+
+          <div class="table-content">
+            <!-- Metadata Cards -->
+            <div class="metadata-grid" id="metadataGrid">
+              <div class="meta-field">
+                <label>Título / Tipo:</label>
+                <input type="text" id="metaTitulo" class="meta-input" placeholder="INFORMACIÓN DIARIA DEL PACIENTE">
+              </div>
+              <div class="meta-field">
+                <label>Médico:</label>
+                <input type="text" id="metaMedico" class="meta-input" placeholder="Nombre del médico">
+              </div>
+              <div class="meta-field">
+                <label>Lugar de Atención:</label>
+                <input type="text" id="metaLugar" class="meta-input" placeholder="Comunidad / Puesto de Salud">
+              </div>
+              <div class="meta-field">
+                <label>Fecha:</label>
+                <input type="text" id="metaFecha" class="meta-input" placeholder="DD/MM/AAAA">
+              </div>
+            </div>
+
+            <!-- Table Container -->
+            <div class="table-responsive">
+              <table id="dataTable" class="data-table">
+                <thead id="tableHead">
+                  <!-- Generated via JS -->
+                </thead>
+                <tbody id="tableBody">
+                  <!-- Generated via JS -->
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- Modal for API Key Config -->
+  <div id="apiKeyModal" class="modal-overlay hidden">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3><i class="fa-solid fa-key text-blue"></i> Configuración de API Key de Gemini</h3>
+        <button id="btnCloseModal" class="btn-icon"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div class="modal-body">
+        <p>Para procesar imágenes directamente, ingresa tu clave API de Google AI Studio. Se guardará de forma segura localmente en tu navegador.</p>
+        <div class="input-group">
+          <label for="inputApiKey">Clave API de Gemini:</label>
+          <input type="password" id="inputApiKey" class="text-input" placeholder="AIzaSy...">
+          <button id="btnToggleApiKeyVisibility" class="btn-icon-inside"><i class="fa-solid fa-eye"></i></button>
+        </div>
+        <p class="modal-hint">
+          ¿No tienes una API Key? Obtén una gratis en <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener">Google AI Studio <i class="fa-solid fa-arrow-up-right-from-square"></i></a>.
+        </p>
+      </div>
+      <div class="modal-footer">
+        <button id="btnSaveApiKey" class="btn btn-primary">Guardar Clave</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Notifications -->
+  <div id="toastContainer" class="toast-container"></div>
+
+  <script src="app.js"></script>
+</body>
+</html>
